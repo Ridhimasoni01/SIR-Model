@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIR Epidemic Spread Model</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f3;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      background: #ffffff;
+      border-radius: 16px;
+      border: 0.5px solid rgba(0,0,0,0.12);
+      padding: 2rem;
+      width: 100%;
+      max-width: 760px;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: #1a1a1a;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 1.75rem;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 1.75rem;
+    }
+
+    .card {
+      background: #f5f5f3;
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+    }
+
+    .card-label {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+
+    .card-val {
+      font-size: 22px;
+      font-weight: 500;
+      color: #1a1a1a;
+    }
+
+    .card-val.infected { color: #D85A30; }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem 2rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .ctrl label {
+      font-size: 13px;
+      color: #666;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .ctrl label span {
+      font-weight: 500;
+      color: #1a1a1a;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: #378ADD;
+      height: 4px;
+      cursor: pointer;
+    }
+
+    .legend {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: #666;
+      flex-wrap: wrap;
+    }
+
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend b {
+      display: inline-block;
+      width: 24px;
+      height: 3px;
+      border-radius: 2px;
+    }
+
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 280px;
+      margin-bottom: 8px;
+    }
+
+    .peak-info {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 1.5rem;
+      min-height: 18px;
+    }
+
+    .markov {
+      background: #f5f5f3;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .state {
+      border-radius: 8px;
+      padding: 7px 18px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .s-state { background: #E6F1FB; color: #0C447C; }
+    .i-state { background: #FAECE7; color: #993C1D; }
+    .r-state { background: #EAF3DE; color: #3B6D11; }
+
+    .arrow {
+      font-size: 12px;
+      color: #888;
+      text-align: center;
+      line-height: 1;
+    }
+
+    .arrow .arr { font-size: 18px; display: block; }
+    .arrow small { font-size: 11px; display: block; margin-top: 1px; }
+
+    .equations {
+      border-top: 0.5px solid rgba(0,0,0,0.1);
+      padding-top: 1.25rem;
+    }
+
+    .equations h2 {
+      font-size: 14px;
+      font-weight: 500;
+      color: #888;
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .eq-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    .eq-card {
+      background: #f5f5f3;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+    }
+
+    .eq-card .eq-label { font-size: 11px; color: #888; font-family: sans-serif; margin-bottom: 4px; }
+    .eq-card .eq-formula { color: #1a1a1a; font-weight: 600; }
+
+    .footer {
+      margin-top: 1.5rem;
+      font-size: 12px;
+      color: #aaa;
+      text-align: center;
+    }
+
+    @media (max-width: 520px) {
+      .controls { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .eq-grid { grid-template-columns: 1fr; }
+      .metrics .card:last-child { grid-column: span 2; }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1a1a; color: #e8e8e6; }
+      .container { background: #242422; border-color: rgba(255,255,255,0.1); }
+      h1, .card-val { color: #e8e8e6; }
+      .card, .markov, .eq-card { background: #2e2e2c; }
+      .card-label, .ctrl label, .arrow, .peak-info, .legend { color: #aaa; }
+      .ctrl label span, .eq-card .eq-formula { color: #e8e8e6; }
+      .equations { border-color: rgba(255,255,255,0.1); }
+      .s-state { background: #042C53; color: #85B7EB; }
+      .i-state { background: #4A1B0C; color: #F0997B; }
+      .r-state { background: #173404; color: #97C459; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>SIR Epidemic Spread Model</h1>
+    <p class="subtitle">Markov chain simulation of disease propagation — Susceptible → Infected → Recovered</p>
+
+    <div class="metrics">
+      <div class="card">
+        <div class="card-label">Peak infected</div>
+        <div class="card-val infected" id="peak-val">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Peak day</div>
+        <div class="card-val" id="peak-day">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">R₀ (basic reproduction)</div>
+        <div class="card-val" id="r0-val">—</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="ctrl">
+        <label>Transmission rate β <span id="beta-out">0.30</span></label>
+        <input type="range" min="0.05" max="0.80" step="0.01" value="0.30" id="beta">
+      </div>
+      <div class="ctrl">
+        <label>Recovery rate γ <span id="gamma-out">0.07</span></label>
+        <input type="range" min="0.02" max="0.30" step="0.01" value="0.07" id="gamma">
+      </div>
+      <div class="ctrl">
+        <label>Population N <span id="pop-out">10,000</span></label>
+        <input type="range" min="1000" max="100000" step="1000" value="10000" id="pop">
+      </div>
+      <div class="ctrl">
+        <label>Initial infected I₀ <span id="i0-out">10</span></label>
+        <input type="range" min="1" max="500" step="1" value="10" id="i0">
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><b style="background:#378ADD;"></b> Susceptible (S)</span>
+      <span><b style="background:#D85A30;"></b> Infected (I)</span>
+      <span><b style="background:#639922; border-top: 2px dashed #639922; background: none; height:0;width:24px;"></b> Recovered (R)</span>
+    </div>
+
+    <div class="chart-wrap">
+      <canvas id="sirChart" role="img" aria-label="SIR model epidemic curves over time.">SIR epidemic simulation.</canvas>
+    </div>
+    <div class="peak-info" id="peak-info"></div>
+
+    <div class="markov">
+      <div class="state s-state">Susceptible (S)</div>
+      <div class="arrow"><span class="arr">→</span><small>β · I/N</small></div>
+      <div class="state i-state">Infected (I)</div>
+      <div class="arrow"><span class="arr">→</span><small>γ</small></div>
+      <div class="state r-state">Recovered (R)</div>
+    </div>
+
+    <div class="equations">
+      <h2>Differential equations</h2>
+      <div class="eq-grid">
+        <div class="eq-card">
+          <div class="eq-label">Susceptible</div>
+          <div class="eq-formula">dS/dt = −βSI/N</div>
+        </div>
+        <div class="eq-card">
+          <div class="eq-label">Infected</div>
+          <div class="eq-formula">dI/dt = βSI/N − γI</div>
+        </div>
+        <div class="eq-card">
+          <div class="eq-label">Recovered</div>
+          <div class="eq-formula">dR/dt = γI</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">SIR model · Built with Chart.js · Adjust sliders to explore epidemic dynamics</div>
+  </div>
+
+  <script>
+    let chart;
+
+    function runSIR(N, I0, beta, gamma, days) {
+      let S = N - I0, I = I0, R = 0;
+      const sArr = [S], iArr = [I], rArr = [R], labels = ['0'];
+      let peakI = I, peakDay = 0;
+      for (let d = 1; d <= days; d++) {
+        const dS = -(beta * S * I) / N;
+        const dI = (beta * S * I) / N - gamma * I;
+        const dR = gamma * I;
+        S = Math.max(0, S + dS);
+        I = Math.max(0, I + dI);
+        R = Math.min(N, R + dR);
+        sArr.push(S); iArr.push(I); rArr.push(R);
+        labels.push(String(d));
+        if (I > peakI) { peakI = I; peakDay = d; }
+      }
+      return { sArr, iArr, rArr, labels, peakI, peakDay };
+    }
+
+    function update() {
+      const beta = parseFloat(document.getElementById('beta').value);
+      const gamma = parseFloat(document.getElementById('gamma').value);
+      const N = parseInt(document.getElementById('pop').value);
+      const I0 = parseInt(document.getElementById('i0').value);
+
+      document.getElementById('beta-out').textContent = beta.toFixed(2);
+      document.getElementById('gamma-out').textContent = gamma.toFixed(2);
+      document.getElementById('pop-out').textContent = N.toLocaleString();
+      document.getElementById('i0-out').textContent = I0.toLocaleString();
+
+      const R0 = (beta / gamma).toFixed(2);
+      document.getElementById('r0-val').textContent = R0;
+
+      const days = 200;
+      const { sArr, iArr, rArr, labels, peakI, peakDay } = runSIR(N, I0, beta, gamma, days);
+
+      document.getElementById('peak-val').textContent = Math.round(peakI).toLocaleString();
+      document.getElementById('peak-day').textContent = 'Day ' + peakDay;
+      document.getElementById('peak-info').textContent =
+        R0 < 1
+          ? 'R₀ < 1 — epidemic declines naturally (no widespread outbreak)'
+          : `R₀ = ${R0} — each infected person spreads to ~${R0} others on average`;
+
+      const step = 2;
+      const ds = sArr.filter((_, i) => i % step === 0);
+      const di = iArr.filter((_, i) => i % step === 0);
+      const dr = rArr.filter((_, i) => i % step === 0);
+      const lb = labels.filter((_, i) => i % step === 0);
+
+      if (chart) {
+        chart.data.labels = lb;
+        chart.data.datasets[0].data = ds;
+        chart.data.datasets[1].data = di;
+        chart.data.datasets[2].data = dr;
+        chart.update('none');
+      } else {
+        chart = new Chart(document.getElementById('sirChart'), {
+          type: 'line',
+          data: {
+            labels: lb,
+            datasets: [
+              { label: 'Susceptible', data: ds, borderColor: '#378ADD', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.4 },
+              { label: 'Infected',    data: di, borderColor: '#D85A30', borderWidth: 2.5, pointRadius: 0, fill: false, tension: 0.4 },
+              { label: 'Recovered',   data: dr, borderColor: '#639922', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.4, borderDash: [6, 3] }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 200 },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: ctx => ctx.dataset.label + ': ' + Math.round(ctx.parsed.y).toLocaleString()
+                }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { maxTicksLimit: 10, color: '#888', font: { size: 11 } },
+                grid: { color: 'rgba(128,128,128,0.1)' },
+                title: { display: true, text: 'Days', color: '#888', font: { size: 12 } }
+              },
+              y: {
+                ticks: {
+                  color: '#888', font: { size: 11 },
+                  callback: v => v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v
+                },
+                grid: { color: 'rgba(128,128,128,0.1)' },
+                title: { display: true, text: 'Population', color: '#888', font: { size: 12 } }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    ['beta', 'gamma', 'pop', 'i0'].forEach(id =>
+      document.getElementById(id).addEventListener('input', update)
+    );
+
+    update();
+  </script>
+</body>
+</html>
